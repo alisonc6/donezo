@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f0f2f5">
+    <meta name="description" content="Donezo - Choose your dinner with a fun swipe interface">
+    <title>Donezo - Choose Your Dinner</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f0f2f5;
+            height: 100vh;
+            height: -webkit-fill-available;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            width: 100%;
+        }
+
+        /* Header styles */
+        .header {
+            text-align: center;
+            padding: 0.75rem;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .round-info {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #1a1a1a;
+        }
+
+        .round-subtext {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        /* Card container styles */
+        .card-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0.5rem;
+            perspective: 1000px;
+            overflow: hidden;
+        }
+
+        /* Card styles */
+        .card {
+            position: absolute;
+            width: 95%;
+            max-width: 400px;
+            height: 65vh;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            cursor: grab;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            touch-action: none;
+        }
+
+        /* Remove stacked card styles */
+        .card.dragging {
+            cursor: grabbing;
+            transition: none;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 55%;
+            object-fit: cover;
+        }
+
+        .card-content {
+            padding: 1rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-description {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.75rem;
+        }
+
+        .popular-dishes {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        /* Swipe indicators */
+        .swipe-indicator {
+            position: absolute;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            transform: rotate(-30deg);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .swipe-right {
+            top: 30px;
+            right: 30px;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .swipe-left {
+            top: 30px;
+            left: 30px;
+            background-color: #f44336;
+            color: white;
+        }
+
+        /* Feedback button */
+        .feedback-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 0.5rem 1rem;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            display: none;
+            font-size: 0.9rem;
+            z-index: 100;
+        }
+
+        /* Winner announcement */
+        .winner-announcement {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            text-align: center;
+            display: none;
+            width: 90%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        /* Mobile-specific adjustments */
+        @media (max-width: 480px) {
+            .card {
+                height: 60vh;
+            }
+
+            .card-image {
+                height: 50%;
+            }
+
+            .card-title {
+                font-size: 1.2rem;
+            }
+
+            .card-description {
+                font-size: 0.85rem;
+            }
+
+            .popular-dishes {
+                font-size: 0.75rem;
+            }
+
+            .winner-announcement {
+                padding: 1rem;
+            }
+
+            .winner-announcement h2 {
+                font-size: 1.2rem;
+            }
+
+            .winner-announcement h3 {
+                font-size: 1.1rem;
+            }
+        }
+
+        /* Landscape mode adjustments */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .card {
+                height: 80vh;
+            }
+
+            .card-image {
+                height: 45%;
+            }
+
+            .header {
+                padding: 0.5rem;
+            }
+
+            .round-info {
+                font-size: 1rem;
+            }
+
+            .round-subtext {
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Prevent pull-to-refresh on mobile */
+        html {
+            overscroll-behavior-y: contain;
+        }
+
+        /* Keyboard navigation hints */
+        .keyboard-hints {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: none;
+        }
+
+        @media (min-width: 768px) {
+            .keyboard-hints {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="round-info">Round 1</div>
+        <div class="round-subtext">Choose the first 4 options you like</div>
+    </div>
+
+    <div class="card-container">
+        <!-- Cards will be dynamically inserted here -->
+    </div>
+
+    <button class="feedback-button">Give Feedback</button>
+
+    <div class="winner-announcement">
+        <h2>Your Dinner Choice Is:</h2>
+        <div class="winner-content"></div>
+    </div>
+
+    <div class="keyboard-hints">
+        Use ← → arrow keys to swipe
+    </div>
+
+    <script>
+        // Cuisine data
+        const cuisines = [
+            {
+                name: "Classic American",
+                description: "Comfort food at its finest with hearty portions and familiar flavors",
+                popularDishes: ["Cheeseburger", "Mac and Cheese", "Apple Pie"],
+                image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Italian",
+                description: "Fresh ingredients and simple preparations create unforgettable flavors",
+                popularDishes: ["Pizza Margherita", "Spaghetti Carbonara", "Tiramisu"],
+                image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Mexican",
+                description: "Bold spices and fresh ingredients combine in vibrant dishes",
+                popularDishes: ["Tacos", "Guacamole", "Chiles Rellenos"],
+                image: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Chinese",
+                description: "Perfect balance of flavors with emphasis on fresh ingredients",
+                popularDishes: ["Dim Sum", "Kung Pao Chicken", "Peking Duck"],
+                image: "https://images.unsplash.com/photo-1525755662778-989d0524087e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Japanese",
+                description: "Artful presentation meets umami-rich flavors",
+                popularDishes: ["Sushi", "Ramen", "Tempura"],
+                image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Indian",
+                description: "Rich spices and complex flavors in every dish",
+                popularDishes: ["Butter Chicken", "Biryani", "Naan"],
+                image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Thai",
+                description: "Harmony of sweet, sour, spicy, and salty flavors",
+                popularDishes: ["Pad Thai", "Green Curry", "Tom Yum Soup"],
+                image: "https://images.unsplash.com/photo-1559314809-0d155014e29e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Greek",
+                description: "Mediterranean flavors with fresh herbs and olive oil",
+                popularDishes: ["Moussaka", "Souvlaki", "Baklava"],
+                image: "https://images.unsplash.com/photo-1541014741259-de529411b96a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "French",
+                description: "Elegant techniques and rich, sophisticated flavors",
+                popularDishes: ["Coq au Vin", "Beef Bourguignon", "Crème Brûlée"],
+                image: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                name: "Spanish",
+                description: "Vibrant flavors with emphasis on fresh seafood",
+                popularDishes: ["Paella", "Tapas", "Gazpacho"],
+                image: "https://images.unsplash.com/photo-1534080564586-6fd05462a4db?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            }
+        ];
+
+        // Game state
+        let currentRound = 1;
+        let likedOptions = [];
+        let declinedOptions = [];
+        let currentCardIndex = 0;
+        let cards = [];
+        let round2Pairs = [];
+        let round3Pair = null;
+        let totalCards = 0;
+
+        // DOM elements
+        const cardContainer = document.querySelector('.card-container');
+        const roundInfo = document.querySelector('.round-info');
+        const roundSubtext = document.querySelector('.round-subtext');
+        const feedbackButton = document.querySelector('.feedback-button');
+        const winnerAnnouncement = document.querySelector('.winner-announcement');
+
+        // Initialize the game
+        function initGame() {
+            shuffleArray(cuisines);
+            totalCards = cuisines.length; // Set total cards
+            createCards();
+            updateRoundInfo();
+        }
+
+        // Create cards for the current round
+        function createCards() {
+            cardContainer.innerHTML = '';
+            
+            if (currentRound === 1) {
+                cuisines.forEach((cuisine, index) => {
+                    const card = createCard(cuisine, index);
+                    cardContainer.appendChild(card);
+                });
+            } else if (currentRound === 2) {
+                // Create pairs for round 2
+                round2Pairs = [];
+                for (let i = 0; i < likedOptions.length; i += 2) {
+                    round2Pairs.push([likedOptions[i], likedOptions[i + 1]]);
+                }
+                showRound2Pair(0);
+            } else if (currentRound === 3) {
+                // Show final pair
+                round3Pair = [likedOptions[0], likedOptions[1]];
+                showRound3Pair();
+            }
+        }
+
+        // Show a pair of cards for round 2
+        function showRound2Pair(pairIndex) {
+            if (pairIndex >= round2Pairs.length) {
+                nextRound();
+                return;
+            }
+
+            const pair = round2Pairs[pairIndex];
+            cardContainer.innerHTML = '';
+            
+            pair.forEach((cuisine, index) => {
+                const card = createCard(cuisine, index);
+                card.style.transform = `translateX(${index === 0 ? '-50%' : '50%'})`;
+                cardContainer.appendChild(card);
+            });
+        }
+
+        // Show the final pair for round 3
+        function showRound3Pair() {
+            cardContainer.innerHTML = '';
+            
+            round3Pair.forEach((cuisine, index) => {
+                const card = createCard(cuisine, index);
+                card.style.transform = `translateX(${index === 0 ? '-50%' : '50%'})`;
+                cardContainer.appendChild(card);
+            });
+        }
+
+        // Create a single card element
+        function createCard(cuisine, index) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            // Store cuisine data on the card element
+            card.dataset.cuisineName = cuisine.name;
+            
+            // Only apply z-index and transform for round 1
+            if (currentRound === 1) {
+                card.style.zIndex = cuisines.length - index;
+                card.style.transform = `translateY(${index * 4}px)`;
+            }
+
+            card.innerHTML = `
+                <img class="card-image" src="${cuisine.image}" alt="${cuisine.name}">
+                <div class="card-content">
+                    <div>
+                        <h2 class="card-title">${cuisine.name}</h2>
+                        <p class="card-description">${cuisine.description}</p>
+                        <p class="popular-dishes">Popular dishes: ${cuisine.popularDishes.join(', ')}</p>
+                    </div>
+                </div>
+            `;
+
+            // Add swipe functionality
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+
+            card.addEventListener('mousedown', startDragging);
+            card.addEventListener('touchstart', startDragging);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('mouseup', stopDragging);
+            document.addEventListener('touchend', stopDragging);
+
+            function startDragging(e) {
+                isDragging = true;
+                card.classList.add('dragging');
+                startX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
+                currentX = startX;
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+                
+                currentX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
+                const diff = currentX - startX;
+                const rotation = diff * 0.1;
+                
+                card.style.transform = `translateX(${diff}px) rotate(${rotation}deg)`;
+            }
+
+            function stopDragging() {
+                if (!isDragging) return;
+                isDragging = false;
+                card.classList.remove('dragging');
+
+                const diff = currentX - startX;
+                if (Math.abs(diff) > 100) {
+                    // Swipe threshold met
+                    if (diff > 0) {
+                        handleSwipeRight(card, cuisine);
+                    } else {
+                        handleSwipeLeft(card, cuisine);
+                    }
+                } else {
+                    // Reset card position
+                    card.style.transform = '';
+                }
+            }
+
+            return card;
+        }
+
+        // Handle right swipe (like)
+        function handleSwipeRight(card, cuisine) {
+            if (currentRound === 1) {
+                if (likedOptions.length >= 4) return;
+                
+                card.style.transform = 'translateX(1000px) rotate(30deg)';
+                setTimeout(() => card.remove(), 300);
+
+                likedOptions.push(cuisine);
+                if (likedOptions.length === 4) {
+                    setTimeout(nextRound, 500);
+                }
+            } else if (currentRound === 2) {
+                const currentPairIndex = Math.floor(likedOptions.indexOf(cuisine) / 2);
+                const pair = round2Pairs[currentPairIndex];
+                
+                // Remove both cards with animation
+                document.querySelectorAll('.card').forEach(c => {
+                    c.style.transform = c === card ? 
+                        'translateX(1000px) rotate(30deg)' : 
+                        'translateX(-1000px) rotate(-30deg)';
+                });
+
+                // Update likedOptions with the selected winner
+                likedOptions[currentPairIndex] = cuisine;
+                likedOptions.splice(currentPairIndex + 1, 1);
+
+                setTimeout(() => {
+                    showRound2Pair(currentPairIndex + 1);
+                }, 500);
+            } else if (currentRound === 3) {
+                // Remove both cards with animation
+                document.querySelectorAll('.card').forEach(c => {
+                    c.style.transform = c === card ? 
+                        'translateX(1000px) rotate(30deg)' : 
+                        'translateX(-1000px) rotate(-30deg)';
+                });
+
+                setTimeout(() => {
+                    showWinner(cuisine);
+                }, 500);
+            }
+        }
+
+        // Handle left swipe (dislike)
+        function handleSwipeLeft(card, cuisine) {
+            if (currentRound === 1) {
+                card.style.transform = 'translateX(-1000px) rotate(-30deg)';
+                setTimeout(() => card.remove(), 300);
+                declinedOptions.push(cuisine);
+                
+                // Check if this was the last card
+                const remainingCards = document.querySelectorAll('.card');
+                if (remainingCards.length === 0 || (likedOptions.length + declinedOptions.length) >= totalCards) {
+                    setTimeout(nextRound, 500);
+                }
+            } else if (currentRound === 2) {
+                const currentPairIndex = Math.floor(likedOptions.indexOf(cuisine) / 2);
+                const pair = round2Pairs[currentPairIndex];
+                const otherCuisine = pair.find(c => c !== cuisine);
+                
+                // Remove both cards with animation
+                document.querySelectorAll('.card').forEach(c => {
+                    c.style.transform = c === card ? 
+                        'translateX(-1000px) rotate(-30deg)' : 
+                        'translateX(1000px) rotate(30deg)';
+                });
+
+                // Update likedOptions with the other option as winner
+                likedOptions[currentPairIndex] = otherCuisine;
+                likedOptions.splice(currentPairIndex + 1, 1);
+
+                setTimeout(() => {
+                    showRound2Pair(currentPairIndex + 1);
+                }, 500);
+            } else if (currentRound === 3) {
+                const otherCuisine = round3Pair.find(c => c !== cuisine);
+                
+                // Remove both cards with animation
+                document.querySelectorAll('.card').forEach(c => {
+                    c.style.transform = c === card ? 
+                        'translateX(-1000px) rotate(-30deg)' : 
+                        'translateX(1000px) rotate(30deg)';
+                });
+
+                setTimeout(() => {
+                    showWinner(otherCuisine);
+                }, 500);
+            }
+        }
+
+        // Move to next round
+        function nextRound() {
+            if (currentRound === 1) {
+                // If we have fewer than 4 options, randomly select from declined options
+                if (likedOptions.length < 4) {
+                    const neededOptions = 4 - likedOptions.length;
+                    
+                    // Randomly select from declined options
+                    for (let i = 0; i < neededOptions; i++) {
+                        if (declinedOptions.length > 0) {
+                            const randomIndex = Math.floor(Math.random() * declinedOptions.length);
+                            likedOptions.push(declinedOptions[randomIndex]);
+                            declinedOptions.splice(randomIndex, 1);
+                        }
+                    }
+                }
+            }
+            
+            currentRound++;
+            if (currentRound > 3) {
+                showWinner();
+                return;
+            }
+            updateRoundInfo();
+            createCards();
+        }
+
+        // Update round information
+        function updateRoundInfo() {
+            const roundTexts = {
+                1: { text: "Round 1", subtext: "Choose the first 4 options you like" },
+                2: { text: "Round 2", subtext: "Head to head match up" },
+                3: { text: "Round 3", subtext: "Final showdown" }
+            };
+
+            roundInfo.textContent = roundTexts[currentRound].text;
+            roundSubtext.textContent = roundTexts[currentRound].subtext;
+        }
+
+        // Show winner
+        function showWinner(winner) {
+            const winnerContent = document.querySelector('.winner-content');
+            winnerContent.innerHTML = `
+                <h3>${winner.name}</h3>
+                <p>${winner.description}</p>
+                <p class="popular-dishes">Popular dishes: ${winner.popularDishes.join(', ')}</p>
+                <img class="card-image" src="${winner.image}" alt="${winner.name}" style="width: 100%; max-width: 300px; margin-top: 1rem;">
+            `;
+            winnerAnnouncement.style.display = 'block';
+            feedbackButton.style.display = 'block';
+        }
+
+        // Utility function to shuffle array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // Initialize the game when the page loads
+        window.addEventListener('load', initGame);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                const currentCard = document.querySelector('.card');
+                if (currentCard) {
+                    handleSwipeRight(currentCard, cuisines[currentCardIndex]);
+                }
+            } else if (e.key === 'ArrowLeft') {
+                const currentCard = document.querySelector('.card');
+                if (currentCard) {
+                    handleSwipeLeft(currentCard, cuisines[currentCardIndex]);
+                }
+            }
+        });
+
+        // Add feedback form functionality
+        feedbackButton.addEventListener('click', () => {
+            const feedbackForm = document.createElement('div');
+            feedbackForm.className = 'feedback-form';
+            feedbackForm.innerHTML = `
+                <h3>How was your experience?</h3>
+                <div class="rating-group">
+                    <label>Would you use this decision?</label>
+                    <div class="stars">
+                        ${[1,2,3,4,5].map(num => `
+                            <input type="radio" name="use" value="${num}" id="use${num}">
+                            <label for="use${num}">★</label>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="rating-group">
+                    <label>Would you use it again?</label>
+                    <div class="stars">
+                        ${[1,2,3,4,5].map(num => `
+                            <input type="radio" name="again" value="${num}" id="again${num}">
+                            <label for="again${num}">★</label>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="rating-group">
+                    <label>Would you recommend to a friend?</label>
+                    <div class="stars">
+                        ${[1,2,3,4,5].map(num => `
+                            <input type="radio" name="recommend" value="${num}" id="recommend${num}">
+                            <label for="recommend${num}">★</label>
+                        `).join('')}
+                    </div>
+                </div>
+                <textarea placeholder="Additional feedback (optional)" rows="3"></textarea>
+                <button onclick="submitFeedback()">Submit Feedback</button>
+            `;
+            winnerAnnouncement.appendChild(feedbackForm);
+            feedbackButton.style.display = 'none';
+        });
+
+        // Submit feedback
+        function submitFeedback() {
+            const ratings = {
+                use: document.querySelector('input[name="use"]:checked')?.value || 0,
+                again: document.querySelector('input[name="again"]:checked')?.value || 0,
+                recommend: document.querySelector('input[name="recommend"]:checked')?.value || 0
+            };
+            const feedback = document.querySelector('textarea').value;
+
+            const subject = "Donezo Feedback";
+            const body = `
+                Ratings:
+                Would use: ${ratings.use}/5
+                Would use again: ${ratings.again}/5
+                Would recommend: ${ratings.recommend}/5
+                
+                Additional feedback:
+                ${feedback}
+            `;
+
+            window.location.href = `mailto:alisonc6@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        }
+
+        // Add styles for feedback form
+        const style = document.createElement('style');
+        style.textContent = `
+            .feedback-form {
+                margin-top: 2rem;
+                text-align: left;
+            }
+            .rating-group {
+                margin: 1rem 0;
+            }
+            .stars {
+                display: flex;
+                gap: 0.5rem;
+                font-size: 1.5rem;
+            }
+            .stars input {
+                display: none;
+            }
+            .stars label {
+                cursor: pointer;
+                color: #ddd;
+            }
+            .stars input:checked ~ label {
+                color: #ffd700;
+            }
+            .stars label:hover,
+            .stars label:hover ~ label {
+                color: #ffd700;
+            }
+            textarea {
+                width: 100%;
+                padding: 0.5rem;
+                margin: 1rem 0;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+            .feedback-form button {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html> 

@@ -1,0 +1,7 @@
+spawn sftp -P 22 -o StrictHostKeyChecking=no smit.dk@ssh.smit.dk
+expect "password:"
+send "poiwer234\r"
+expect "sftp>"
+send "put alison2.html /alison2.html\r"
+expect "sftp>"
+send "exit\r"

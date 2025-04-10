@@ -1,0 +1,6 @@
+open ftp.smit.dk 21
+user smit
+poiwer234
+binary
+put "alison2.html" "/alison2.html"
+quit
