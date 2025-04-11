@@ -366,8 +366,10 @@
 
         // Initialize the game
         function initGame() {
+            console.log("Initial cuisines array:", JSON.stringify(cuisines));
             shuffleArray(cuisines);
-            totalCards = cuisines.length; // Set total cards
+            console.log("Shuffled cuisines array:", JSON.stringify(cuisines));
+            totalCards = cuisines.length;
             createCards();
             updateRoundInfo();
         }
@@ -382,32 +384,41 @@
                     cardContainer.appendChild(card);
                 });
             } else if (currentRound === 2) {
-                // Create pairs for round 2
-                round2Pairs = [];
-                for (let i = 0; i < likedOptions.length; i += 2) {
-                    round2Pairs.push([likedOptions[i], likedOptions[i + 1]]);
-                }
+                // Round 2 pairs are now handled in nextRound()
                 showRound2Pair(0);
             } else if (currentRound === 3) {
                 // Show final pair
                 round3Pair = [likedOptions[0], likedOptions[1]];
+                console.log("Final liked options for round 3:", likedOptions);
+                console.log("Round 3 pair:", round3Pair);
                 showRound3Pair();
             }
         }
 
         // Show a pair of cards for round 2
         function showRound2Pair(pairIndex) {
+            console.log("Showing round 2 pair index:", pairIndex);
+            console.log("Current liked options:", likedOptions);
+            console.log("All round 2 pairs:", round2Pairs);
+            console.log("Current card index:", currentCardIndex);
+            
             if (pairIndex >= round2Pairs.length) {
+                console.log("No more pairs, moving to next round");
                 nextRound();
                 return;
             }
 
             const pair = round2Pairs[pairIndex];
+            console.log("Current pair to show:", pair);
             cardContainer.innerHTML = '';
             
+            // Create and position cards
             pair.forEach((cuisine, index) => {
                 const card = createCard(cuisine, index);
-                card.style.transform = `translateX(${index === 0 ? '-50%' : '50%'})`;
+                // Position cards side by side with proper spacing
+                card.style.transform = `translateX(${index === 0 ? '-25%' : '25%'})`;
+                // Add a data attribute to identify which card is which
+                card.dataset.position = index === 0 ? 'left' : 'right';
                 cardContainer.appendChild(card);
             });
         }
@@ -428,8 +439,14 @@
             const card = document.createElement('div');
             card.className = 'card';
             
-            // Store cuisine data on the card element
-            card.dataset.cuisineName = cuisine.name;
+            // Create a deep copy of the cuisine object to avoid reference issues
+            const cuisineCopy = JSON.parse(JSON.stringify(cuisine));
+            
+            // Store the cuisine copy in the card's dataset
+            card.dataset.cuisine = JSON.stringify(cuisineCopy);
+            card.dataset.index = index;
+            
+            console.log(`Creating card ${index} (${cuisine.name})`);
             
             // Only apply z-index and transform for round 1
             if (currentRound === 1) {
@@ -486,10 +503,21 @@
                 const diff = currentX - startX;
                 if (Math.abs(diff) > 100) {
                     // Swipe threshold met
+                    const cardCuisine = JSON.parse(card.dataset.cuisine);
+                    const cardIndex = parseInt(card.dataset.index);
+                    
+                    // Remove card immediately to prevent multiple swipes
+                    card.style.transform = diff > 0 ? 
+                        'translateX(1000px) rotate(30deg)' : 
+                        'translateX(-1000px) rotate(-30deg)';
+                    setTimeout(() => card.remove(), 300);
+                    
                     if (diff > 0) {
-                        handleSwipeRight(card, cuisine);
+                        console.log(`Card ${cardIndex} (${cardCuisine.name}) swiped right`);
+                        handleSwipeRight(cardCuisine);
                     } else {
-                        handleSwipeLeft(card, cuisine);
+                        console.log(`Card ${cardIndex} (${cardCuisine.name}) swiped left`);
+                        handleSwipeLeft(card, cardCuisine);
                     }
                 } else {
                     // Reset card position
@@ -501,41 +529,85 @@
         }
 
         // Handle right swipe (like)
-        function handleSwipeRight(card, cuisine) {
+        function handleSwipeRight(cuisine) {
             if (currentRound === 1) {
-                if (likedOptions.length >= 4) return;
+                console.log("Current cuisine being swiped right:", JSON.stringify(cuisine));
+                console.log("Current liked options:", JSON.stringify(likedOptions));
                 
-                card.style.transform = 'translateX(1000px) rotate(30deg)';
-                setTimeout(() => card.remove(), 300);
-
+                // Check if this cuisine is already in likedOptions by comparing names
+                const isAlreadyLiked = likedOptions.some(option => option.name === cuisine.name);
+                
+                if (isAlreadyLiked) {
+                    console.log("This cuisine is already liked:", cuisine.name);
+                    return;
+                }
+                
                 likedOptions.push(cuisine);
+                console.log("Added cuisine to liked options:", JSON.stringify(cuisine));
+                console.log("Current liked options after adding:", JSON.stringify(likedOptions));
+                
+                // Check if we have exactly 4 liked options
                 if (likedOptions.length === 4) {
+                    console.log("Got exactly 4 likes, ending round 1");
+                    // Remove all remaining cards
+                    document.querySelectorAll('.card').forEach(card => {
+                        card.style.transform = 'translateX(-1000px) rotate(-30deg)';
+                        setTimeout(() => card.remove(), 300);
+                    });
                     setTimeout(nextRound, 500);
                 }
             } else if (currentRound === 2) {
-                const currentPairIndex = Math.floor(likedOptions.indexOf(cuisine) / 2);
+                const currentPairIndex = Math.floor(currentCardIndex / 2);
+                console.log("Round 2 right swipe - Current pair index:", currentPairIndex);
+                console.log("Cuisine swiped right:", cuisine);
+                
+                // Get the current pair
                 const pair = round2Pairs[currentPairIndex];
+                const otherCuisine = pair.find(c => c.name !== cuisine.name);
                 
                 // Remove both cards with animation
                 document.querySelectorAll('.card').forEach(c => {
-                    c.style.transform = c === card ? 
-                        'translateX(1000px) rotate(30deg)' : 
-                        'translateX(-1000px) rotate(-30deg)';
+                    const cardCuisine = JSON.parse(c.dataset.cuisine);
+                    const position = c.dataset.position;
+                    
+                    // Animate based on which card was swiped
+                    if (cardCuisine.name === cuisine.name) {
+                        // The swiped card goes right
+                        c.style.transform = 'translateX(1000px) rotate(30deg)';
+                    } else {
+                        // The other card goes left
+                        c.style.transform = 'translateX(-1000px) rotate(-30deg)';
+                    }
+                    
+                    // Remove the card after animation
+                    setTimeout(() => c.remove(), 300);
                 });
 
-                // Update likedOptions with the selected winner
-                likedOptions[currentPairIndex] = cuisine;
-                likedOptions.splice(currentPairIndex + 1, 1);
+                // Update likedOptions - keep the winner and maintain the order
+                likedOptions[currentPairIndex * 2] = cuisine;
+                likedOptions[currentPairIndex * 2 + 1] = otherCuisine;
+                
+                currentCardIndex += 2;
+                console.log("Updated liked options after right swipe:", [...likedOptions]);
 
                 setTimeout(() => {
-                    showRound2Pair(currentPairIndex + 1);
+                    if (currentCardIndex >= round2Pairs.length * 2) {
+                        nextRound();
+                    } else {
+                        showRound2Pair(Math.floor(currentCardIndex / 2));
+                    }
                 }, 500);
             } else if (currentRound === 3) {
+                // Get the other cuisine from the pair
+                const otherCuisine = round3Pair.find(c => c.name !== cuisine.name);
+                
                 // Remove both cards with animation
                 document.querySelectorAll('.card').forEach(c => {
-                    c.style.transform = c === card ? 
-                        'translateX(1000px) rotate(30deg)' : 
-                        'translateX(-1000px) rotate(-30deg)';
+                    const cardIndex = parseInt(c.dataset.index);
+                    // The card on the left (index 0) should animate left, the one on the right (index 1) should animate right
+                    c.style.transform = cardIndex === 0 ? 
+                        'translateX(-1000px) rotate(-30deg)' : 
+                        'translateX(1000px) rotate(30deg)';
                 });
 
                 setTimeout(() => {
@@ -553,34 +625,80 @@
                 
                 // Check if this was the last card
                 const remainingCards = document.querySelectorAll('.card');
-                if (remainingCards.length === 0 || (likedOptions.length + declinedOptions.length) >= totalCards) {
+                console.log("Remaining cards after left swipe:", remainingCards.length);
+                console.log("Liked options count:", likedOptions.length);
+                
+                // End round 1 if we've gone through all cards
+                if (remainingCards.length === 0) {
+                    console.log("No more cards, ending round 1");
+                    
+                    // If we don't have 4 liked options, add some declined options to make up the difference
+                    if (likedOptions.length < 4 && declinedOptions.length > 0) {
+                        console.log("Not enough liked options, adding from declined options");
+                        const needed = 4 - likedOptions.length;
+                        const toAdd = declinedOptions.slice(0, needed);
+                        
+                        // Add unique declined options to liked options
+                        for (const option of toAdd) {
+                            const isAlreadyLiked = likedOptions.some(opt => opt.name === option.name);
+                            if (!isAlreadyLiked) {
+                                likedOptions.push(option);
+                                console.log("Added declined option to liked options:", option.name);
+                            }
+                        }
+                    }
+                    
                     setTimeout(nextRound, 500);
                 }
             } else if (currentRound === 2) {
-                const currentPairIndex = Math.floor(likedOptions.indexOf(cuisine) / 2);
+                const currentPairIndex = Math.floor(currentCardIndex / 2);
+                console.log("Round 2 left swipe - Current pair index:", currentPairIndex);
+                console.log("Cuisine swiped left:", cuisine);
+                
                 const pair = round2Pairs[currentPairIndex];
-                const otherCuisine = pair.find(c => c !== cuisine);
+                const otherCuisine = pair.find(c => c.name !== cuisine.name);
+                console.log("Other cuisine selected as winner:", otherCuisine);
                 
                 // Remove both cards with animation
                 document.querySelectorAll('.card').forEach(c => {
-                    c.style.transform = c === card ? 
-                        'translateX(-1000px) rotate(-30deg)' : 
-                        'translateX(1000px) rotate(30deg)';
+                    const cardCuisine = JSON.parse(c.dataset.cuisine);
+                    const position = c.dataset.position;
+                    
+                    // Animate based on which card was swiped
+                    if (cardCuisine.name === cuisine.name) {
+                        // The swiped card goes left
+                        c.style.transform = 'translateX(-1000px) rotate(-30deg)';
+                    } else {
+                        // The other card goes right
+                        c.style.transform = 'translateX(1000px) rotate(30deg)';
+                    }
+                    
+                    // Remove the card after animation
+                    setTimeout(() => c.remove(), 300);
                 });
 
-                // Update likedOptions with the other option as winner
-                likedOptions[currentPairIndex] = otherCuisine;
-                likedOptions.splice(currentPairIndex + 1, 1);
+                // Update likedOptions - keep the winner and maintain the order
+                likedOptions[currentPairIndex * 2] = otherCuisine;
+                likedOptions[currentPairIndex * 2 + 1] = cuisine;
+                
+                currentCardIndex += 2;
+                console.log("Updated liked options after left swipe:", [...likedOptions]);
 
                 setTimeout(() => {
-                    showRound2Pair(currentPairIndex + 1);
+                    if (currentCardIndex >= round2Pairs.length * 2) {
+                        nextRound();
+                    } else {
+                        showRound2Pair(Math.floor(currentCardIndex / 2));
+                    }
                 }, 500);
             } else if (currentRound === 3) {
-                const otherCuisine = round3Pair.find(c => c !== cuisine);
+                const otherCuisine = round3Pair.find(c => c.name !== cuisine.name);
                 
                 // Remove both cards with animation
                 document.querySelectorAll('.card').forEach(c => {
-                    c.style.transform = c === card ? 
+                    const cardIndex = parseInt(c.dataset.index);
+                    // The card on the left (index 0) should animate left, the one on the right (index 1) should animate right
+                    c.style.transform = cardIndex === 0 ? 
                         'translateX(-1000px) rotate(-30deg)' : 
                         'translateX(1000px) rotate(30deg)';
                 });
@@ -594,28 +712,69 @@
         // Move to next round
         function nextRound() {
             if (currentRound === 1) {
-                // If we have fewer than 4 options, randomly select from declined options
-                if (likedOptions.length < 4) {
-                    const neededOptions = 4 - likedOptions.length;
-                    
-                    // Randomly select from declined options
-                    for (let i = 0; i < neededOptions; i++) {
-                        if (declinedOptions.length > 0) {
-                            const randomIndex = Math.floor(Math.random() * declinedOptions.length);
-                            likedOptions.push(declinedOptions[randomIndex]);
-                            declinedOptions.splice(randomIndex, 1);
-                        }
+                currentRound = 2;
+                console.log("Moving to round 2");
+                console.log("Liked options at start of round 2:", likedOptions);
+                
+                // Validate we have exactly 4 options from round 1
+                if (likedOptions.length !== 4) {
+                    console.error("Expected 4 options from round 1, but got:", likedOptions.length);
+                    return;
+                }
+
+                // Create pairs for round 2
+                round2Pairs = [];
+                for (let i = 0; i < likedOptions.length; i += 2) {
+                    if (i + 1 < likedOptions.length) {
+                        round2Pairs.push([likedOptions[i], likedOptions[i + 1]]);
                     }
                 }
-            }
-            
-            currentRound++;
-            if (currentRound > 3) {
-                showWinner();
-                return;
+                
+                console.log("Created round 2 pairs:", round2Pairs);
+                
+                // Reset state for round 2
+                currentCardIndex = 0;
+                
+                // Create a new array for round 2 with the same length as round2Pairs * 2
+                const round2Options = new Array(round2Pairs.length * 2);
+                
+                // Initialize with the original liked options
+                for (let i = 0; i < likedOptions.length; i++) {
+                    round2Options[i] = likedOptions[i];
+                }
+                
+                // Update likedOptions with the properly initialized array
+                likedOptions = round2Options;
+                
+                console.log("Initialized likedOptions for round 2:", likedOptions);
+                
+                showRound2Pair(0);
+            } else if (currentRound === 2) {
+                currentRound = 3;
+                console.log("Moving to round 3");
+                console.log("Final liked options for round 3:", likedOptions);
+                console.log("Liked options length:", likedOptions.length);
+                console.log("Liked options content:", JSON.stringify(likedOptions));
+                
+                // Filter out any undefined or null values
+                likedOptions = likedOptions.filter(option => option !== undefined && option !== null);
+                console.log("Filtered liked options:", likedOptions);
+                
+                // Extract the winners from round 2 (first option from each pair)
+                const round2Winners = [];
+                for (let i = 0; i < round2Pairs.length; i++) {
+                    // The winner is the first option in each pair after round 2
+                    round2Winners.push(likedOptions[i * 2]);
+                }
+                
+                console.log("Round 2 winners:", round2Winners);
+                
+                // Create the final pair from the winners of round 2
+                round3Pair = [round2Winners[0], round2Winners[1]];
+                console.log("Round 3 pair:", round3Pair);
+                showRound3Pair();
             }
             updateRoundInfo();
-            createCards();
         }
 
         // Update round information
@@ -659,7 +818,7 @@
             if (e.key === 'ArrowRight') {
                 const currentCard = document.querySelector('.card');
                 if (currentCard) {
-                    handleSwipeRight(currentCard, cuisines[currentCardIndex]);
+                    handleSwipeRight(cuisines[currentCardIndex]);
                 }
             } else if (e.key === 'ArrowLeft') {
                 const currentCard = document.querySelector('.card');
