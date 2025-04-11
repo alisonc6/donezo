@@ -259,6 +259,93 @@
                 display: block;
             }
         }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .card-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                padding: 10px;
+                height: auto;
+                overflow: visible;
+                position: relative;
+            }
+            
+            /* Round 1 cards should remain stacked in a deck format */
+            .card-container:not(.round-2-container):not(.round-3-container) .card {
+                position: absolute;
+                width: 95%;
+                max-width: 400px;
+                height: 65vh;
+                margin: 0;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%) !important;
+            }
+            
+            /* Preserve the stacking effect for round 1 */
+            .card-container:not(.round-2-container):not(.round-3-container) .card:nth-child(n+2) {
+                transform: translate(-50%, calc(-50% + 4px)) !important;
+            }
+            
+            /* Round 2 and 3 cards should be smaller and stacked vertically */
+            .round-2-container,
+            .round-3-container {
+                height: auto;
+                min-height: 80vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-around;
+                padding: 10px 0;
+            }
+            
+            .round-2-container .card,
+            .round-3-container .card {
+                width: 90%;
+                max-width: 350px;
+                height: 35vh; /* Even smaller height to fit both cards */
+                margin: 10px auto;
+                transform: none !important; /* Override any transform for initial positioning */
+                position: relative; /* Change from absolute to relative for mobile */
+                left: auto;
+                right: auto;
+                top: auto;
+                bottom: auto;
+                z-index: 1; /* Ensure cards have proper stacking context */
+            }
+            
+            /* Add visual separation between cards */
+            .round-2-container .card:first-child,
+            .round-3-container .card:first-child {
+                margin-bottom: 20px;
+            }
+            
+            .card-image {
+                height: 40%;
+            }
+            
+            .card-content {
+                height: 60%;
+                padding: 15px;
+            }
+            
+            .card-title {
+                font-size: 1.5rem;
+            }
+            
+            .card-description {
+                font-size: 1rem;
+            }
+            
+            .popular-dishes {
+                font-size: 0.9rem;
+            }
+            
+            .round-info {
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -343,7 +430,7 @@
                 name: "Spanish",
                 description: "Vibrant flavors with emphasis on fresh seafood",
                 popularDishes: ["Paella", "Tapas", "Gazpacho"],
-                image: "https://images.unsplash.com/photo-1534080564586-6fd05462a4db?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+                image: "https://images.unsplash.com/photo-1515443961218-a51367888e4b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
             }
         ];
 
@@ -412,11 +499,17 @@
             console.log("Current pair to show:", pair);
             cardContainer.innerHTML = '';
             
+            // Add class to identify round 2 container
+            cardContainer.classList.add('round-2-container');
+            
             // Create and position cards
             pair.forEach((cuisine, index) => {
                 const card = createCard(cuisine, index);
                 // Position cards side by side with proper spacing
-                card.style.transform = `translateX(${index === 0 ? '-25%' : '25%'})`;
+                // Use media query to handle mobile layout
+                if (window.innerWidth > 768) {
+                    card.style.transform = `translateX(${index === 0 ? '-25%' : '25%'})`;
+                }
                 // Add a data attribute to identify which card is which
                 card.dataset.position = index === 0 ? 'left' : 'right';
                 cardContainer.appendChild(card);
@@ -425,11 +518,22 @@
 
         // Show the final pair for round 3
         function showRound3Pair() {
+            console.log("Showing round 3 pair");
             cardContainer.innerHTML = '';
             
+            // Add class to identify round 3 container
+            cardContainer.classList.add('round-3-container');
+            
+            // Create and position cards
             round3Pair.forEach((cuisine, index) => {
                 const card = createCard(cuisine, index);
-                card.style.transform = `translateX(${index === 0 ? '-50%' : '50%'})`;
+                // Position cards side by side with proper spacing
+                // Use media query to handle mobile layout
+                if (window.innerWidth > 768) {
+                    card.style.transform = `translateX(${index === 0 ? '-25%' : '25%'})`;
+                }
+                // Add a data attribute to identify which card is which
+                card.dataset.position = index === 0 ? 'left' : 'right';
                 cardContainer.appendChild(card);
             });
         }
@@ -470,32 +574,72 @@
             let currentX = 0;
             let isDragging = false;
 
+            // Prevent default touch behaviors that might interfere with swiping
+            card.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                startDragging(e);
+            }, { passive: false });
+            
+            card.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                drag(e);
+            }, { passive: false });
+            
+            card.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                stopDragging(e);
+            }, { passive: false });
+            
+            // Mouse events for desktop
             card.addEventListener('mousedown', startDragging);
-            card.addEventListener('touchstart', startDragging);
             document.addEventListener('mousemove', drag);
-            document.addEventListener('touchmove', drag);
             document.addEventListener('mouseup', stopDragging);
-            document.addEventListener('touchend', stopDragging);
 
             function startDragging(e) {
                 isDragging = true;
                 card.classList.add('dragging');
                 startX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
                 currentX = startX;
+                
+                // Add swipe indicators
+                const swipeRight = document.createElement('div');
+                swipeRight.className = 'swipe-indicator swipe-right';
+                swipeRight.textContent = 'LIKE';
+                
+                const swipeLeft = document.createElement('div');
+                swipeLeft.className = 'swipe-indicator swipe-left';
+                swipeLeft.textContent = 'NOPE';
+                
+                card.appendChild(swipeRight);
+                card.appendChild(swipeLeft);
             }
 
             function drag(e) {
                 if (!isDragging) return;
-                e.preventDefault();
                 
                 currentX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
                 const diff = currentX - startX;
                 const rotation = diff * 0.1;
                 
                 card.style.transform = `translateX(${diff}px) rotate(${rotation}deg)`;
+                
+                // Show/hide swipe indicators based on swipe direction
+                const swipeRight = card.querySelector('.swipe-right');
+                const swipeLeft = card.querySelector('.swipe-left');
+                
+                if (diff > 50) {
+                    swipeRight.style.opacity = '1';
+                    swipeLeft.style.opacity = '0';
+                } else if (diff < -50) {
+                    swipeRight.style.opacity = '0';
+                    swipeLeft.style.opacity = '1';
+                } else {
+                    swipeRight.style.opacity = '0';
+                    swipeLeft.style.opacity = '0';
+                }
             }
 
-            function stopDragging() {
+            function stopDragging(e) {
                 if (!isDragging) return;
                 isDragging = false;
                 card.classList.remove('dragging');
@@ -523,6 +667,12 @@
                     // Reset card position
                     card.style.transform = '';
                 }
+                
+                // Remove swipe indicators
+                const swipeRight = card.querySelector('.swipe-right');
+                const swipeLeft = card.querySelector('.swipe-left');
+                if (swipeRight) swipeRight.remove();
+                if (swipeLeft) swipeLeft.remove();
             }
 
             return card;
@@ -619,37 +769,70 @@
         // Handle left swipe (dislike)
         function handleSwipeLeft(card, cuisine) {
             if (currentRound === 1) {
-                card.style.transform = 'translateX(-1000px) rotate(-30deg)';
-                setTimeout(() => card.remove(), 300);
+                // Add to declined options
                 declinedOptions.push(cuisine);
                 
-                // Check if this was the last card
-                const remainingCards = document.querySelectorAll('.card');
-                console.log("Remaining cards after left swipe:", remainingCards.length);
-                console.log("Liked options count:", likedOptions.length);
+                // Remove the card with animation
+                card.style.transform = 'translateX(-1000px) rotate(-30deg)';
+                setTimeout(() => card.remove(), 300);
                 
-                // End round 1 if we've gone through all cards
-                if (remainingCards.length === 0) {
-                    console.log("No more cards, ending round 1");
+                // Check if this was the last card
+                setTimeout(() => {
+                    const remainingCards = document.querySelectorAll('.card');
+                    console.log("Remaining cards after swipe:", remainingCards.length);
                     
-                    // If we don't have 4 liked options, add some declined options to make up the difference
-                    if (likedOptions.length < 4 && declinedOptions.length > 0) {
-                        console.log("Not enough liked options, adding from declined options");
-                        const needed = 4 - likedOptions.length;
-                        const toAdd = declinedOptions.slice(0, needed);
+                    // If we've gone through all cards, end round 1
+                    if (remainingCards.length === 0) {
+                        console.log("No cards remaining, ending round 1");
+                        console.log("Current liked options:", likedOptions.length);
                         
-                        // Add unique declined options to liked options
-                        for (const option of toAdd) {
-                            const isAlreadyLiked = likedOptions.some(opt => opt.name === option.name);
-                            if (!isAlreadyLiked) {
-                                likedOptions.push(option);
-                                console.log("Added declined option to liked options:", option.name);
+                        // If we don't have 4 liked options, add random ones
+                        if (likedOptions.length < 4) {
+                            console.log("Not enough liked options, adding random ones");
+                            
+                            // First try to add from declined options
+                            if (declinedOptions.length > 0) {
+                                // Shuffle declined options
+                                shuffleArray(declinedOptions);
+                                
+                                // Add unique declined options until we have 4
+                                for (let i = 0; i < declinedOptions.length && likedOptions.length < 4; i++) {
+                                    const option = declinedOptions[i];
+                                    // Check if this option is already in likedOptions
+                                    const isAlreadyLiked = likedOptions.some(opt => opt.name === option.name);
+                                    if (!isAlreadyLiked) {
+                                        likedOptions.push(option);
+                                        console.log("Added declined option to liked options:", option.name);
+                                    }
+                                }
+                            }
+                            
+                            // If we still don't have 4 options, add from all cuisines
+                            if (likedOptions.length < 4) {
+                                // Create a copy of all cuisines
+                                const allCuisines = [...cuisines];
+                                // Shuffle them
+                                shuffleArray(allCuisines);
+                                
+                                // Add unique cuisines until we have 4
+                                for (let i = 0; i < allCuisines.length && likedOptions.length < 4; i++) {
+                                    const option = allCuisines[i];
+                                    // Check if this option is already in likedOptions
+                                    const isAlreadyLiked = likedOptions.some(opt => opt.name === option.name);
+                                    if (!isAlreadyLiked) {
+                                        likedOptions.push(option);
+                                        console.log("Added cuisine to liked options:", option.name);
+                                    }
+                                }
                             }
                         }
+                        
+                        console.log("Final liked options before next round:", likedOptions.length);
+                        
+                        // Move to next round
+                        nextRound();
                     }
-                    
-                    setTimeout(nextRound, 500);
-                }
+                }, 350); // Slightly longer than the card removal animation
             } else if (currentRound === 2) {
                 const currentPairIndex = Math.floor(currentCardIndex / 2);
                 console.log("Round 2 left swipe - Current pair index:", currentPairIndex);
@@ -712,16 +895,67 @@
         // Move to next round
         function nextRound() {
             if (currentRound === 1) {
-                currentRound = 2;
-                console.log("Moving to round 2");
-                console.log("Liked options at start of round 2:", likedOptions);
+                // Ensure we have exactly 4 options before moving to round 2
+                if (likedOptions.length < 4) {
+                    console.log("Not enough liked options, adding random ones");
+                    
+                    // First try to add from declined options
+                    if (declinedOptions.length > 0) {
+                        // Shuffle declined options
+                        shuffleArray(declinedOptions);
+                        
+                        // Add unique declined options until we have 4
+                        for (let i = 0; i < declinedOptions.length && likedOptions.length < 4; i++) {
+                            const option = declinedOptions[i];
+                            // Check if this option is already in likedOptions
+                            const isAlreadyLiked = likedOptions.some(opt => opt.name === option.name);
+                            if (!isAlreadyLiked) {
+                                likedOptions.push(option);
+                                console.log("Added declined option to liked options:", option.name);
+                            }
+                        }
+                    }
+                    
+                    // If we still don't have 4 options, add from all cuisines
+                    if (likedOptions.length < 4) {
+                        // Create a copy of all cuisines
+                        const allCuisines = [...cuisines];
+                        // Shuffle them
+                        shuffleArray(allCuisines);
+                        
+                        // Add unique cuisines until we have 4
+                        for (let i = 0; i < allCuisines.length && likedOptions.length < 4; i++) {
+                            const option = allCuisines[i];
+                            // Check if this option is already in likedOptions
+                            const isAlreadyLiked = likedOptions.some(opt => opt.name === option.name);
+                            if (!isAlreadyLiked) {
+                                likedOptions.push(option);
+                                console.log("Added cuisine to liked options:", option.name);
+                            }
+                        }
+                    }
+                }
+                
+                console.log("Final liked options for round 2:", likedOptions);
                 
                 // Validate we have exactly 4 options from round 1
                 if (likedOptions.length !== 4) {
                     console.error("Expected 4 options from round 1, but got:", likedOptions.length);
-                    return;
+                    // Force add options if we still don't have 4
+                    while (likedOptions.length < 4) {
+                        const randomIndex = Math.floor(Math.random() * cuisines.length);
+                        const randomCuisine = cuisines[randomIndex];
+                        const isAlreadyLiked = likedOptions.some(opt => opt.name === randomCuisine.name);
+                        if (!isAlreadyLiked) {
+                            likedOptions.push(randomCuisine);
+                            console.log("Forced added cuisine to liked options:", randomCuisine.name);
+                        }
+                    }
                 }
-
+                
+                currentRound = 2;
+                console.log("Moving to round 2");
+                
                 // Create pairs for round 2
                 round2Pairs = [];
                 for (let i = 0; i < likedOptions.length; i += 2) {
